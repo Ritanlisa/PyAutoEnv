@@ -15,5 +15,4 @@ optional arguments:
   --retry RETRY      max retry times for dealing dependencies
   --cuda CUDA        install pytorch with cuda support
   --wait WAIT        wait time(s) to check if the entry program runs successfully
-(base) PS C:\Users\Ritanlisa\Desktop\PyAutoEnv> 
 ```
