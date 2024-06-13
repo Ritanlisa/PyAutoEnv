@@ -59,7 +59,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--python",
         help="use pip environment",
-        action="store_true",
         default="3.12",
     )
     parser.add_argument(
