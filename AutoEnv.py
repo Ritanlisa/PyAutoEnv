@@ -78,6 +78,37 @@ if __name__ == "__main__":
         default=300,
     )
     args = parser.parse_args()
+    
+    # use README.md get file support
+    readme_command = ""
+    if os.path.exists("README.md"):
+        print("Read README.md to get file support")
+        with open("README.md", "r") as f:
+            content = f.read()
+        commandLine = re.search(r"```.*\n([.*pip.*|.*conda.*|.*install.*|.*git.*|.*requirements.*])\n```", content, re.DOTALL)
+        pyversion = re.search(r"```.*\n.*python[ |==](\d+\.\d+).*\n```", content)
+        
+        if pyversion != None:
+            args.python = pyversion.group(1)
+        if commandLine != None:
+            for matchresult in commandLine.groups():
+                gitName = re.search(r"git clone .*[/|:].*/(.*)", matchresult)
+                if gitName != None:
+                    command = matchresult.strip().replace("\n", " && ")
+                    if gitName.group(1) in os.path.basename(os.getcwd()):
+                        # if the git repo name is the same as the current folder, change to parent folder first
+                        command = "cd .. && " + command
+                
+                # if pip install is the first command, run command after conda environment is created
+                pipHeader = re.search(r"[pip|pip3] install.*", matchresult)
+                if pipHeader != None:
+                    readme_command += command.strip() + "\n"
+                else:
+                    success = install_by_subprocess(
+                        command, args.retlenv, "install dependecies from README.md"
+                    )
+    readme_command = readme_command.strip().replace("\n", " && ")
+
     # select entry point
     entry = None
     use_conda = args.conda
@@ -123,30 +154,40 @@ if __name__ == "__main__":
     # create conda environment
 
     if use_conda:
-        success = False
-        if os.path.exists("environment.yml"):
-            success = install_by_subprocess(
-                "conda env create -f environment.yml",
-                args.retlenv,
-                "Create conda environment from environment.yml",
-            )
-        if os.path.exists("environment.yaml") and not success:
-            success = install_by_subprocess(
-                "conda env create -f environment.yaml",
-                args.retlenv,
-                "Create conda environment from environment.yaml",
-            )
-        if not success:
-            success = install_by_subprocess(
-                f"conda create --prefix ./venv python={args.python} -y",
-                args.retry,
-                "Create conda environment",
-            )
-        pycommand = "call conda activate ./venv && python "
+        if not os.path.exists("venv"):
+            success = False
+            if os.path.exists("environment.yml"):
+                success = install_by_subprocess(
+                    "conda env create -f environment.yml",
+                    args.retlenv,
+                    "Create conda environment from environment.yml",
+                )
+            if os.path.exists("environment.yaml") and not success:
+                success = install_by_subprocess(
+                    "conda env create -f environment.yaml",
+                    args.retlenv,
+                    "Create conda environment from environment.yaml",
+                )
+            if not success:
+                success = install_by_subprocess(
+                    f"conda create --prefix ./venv python={args.python} -y",
+                    args.retry,
+                    "Create conda environment",
+                )
+            pycommand = "call conda activate ./venv && python "
+        else:
+            print("Conda environment already exists, skip creation")
     else:
         print("No conda environment used, using global python environment")
         pycommand = "python "
 
+    # install dependencies from README.md
+    if readme_command != "":
+        success = install_by_subprocess(
+            f"{pycommand} -m pip install {readme_command}",
+            args.retlenv,
+            "Install dependencies from README.md",
+        )
     # install requirements
     if os.path.exists("requirements.txt"):
 
@@ -171,6 +212,24 @@ if __name__ == "__main__":
         )
     else:
         print("No requirements.txt found, skip installation")
+
+    # for all files py/pyw/ipynb in the current folder or subfolders, install dependencies from setup.py
+    for root, dirs, files in os.walk("."):
+        for name in files:
+            if name.endswith(".py") or name.endswith(".pyw") or name.endswith(".ipynb"):
+                with open(os.path.join(root, name), "r") as f:
+                    match = re.search(r"[import\s+(.*)\s|from\s+(.*)\simport.*]", f.read())
+                    for single in match.groups():
+                        if single != None:
+                            module = single.split(" ")[0]
+                            if module in module_transfer:
+                                module = module_transfer[module]
+                            result = install_by_subprocess(
+                                f"{pycommand} -m pip install {module}",
+                                args.retry,
+                                f"Install module {module}",
+                            )
+
 
     # run entry point to install additional dependencies
 
