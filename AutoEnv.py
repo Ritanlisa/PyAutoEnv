@@ -78,16 +78,20 @@ if __name__ == "__main__":
         default=300,
     )
     args = parser.parse_args()
-    
+
     # use README.md get file support
     readme_command = ""
     if os.path.exists("README.md"):
         print("Read README.md to get file support")
         with open("README.md", "r") as f:
             content = f.read()
-        commandLine = re.search(r"```.*\n([.*pip.*|.*conda.*|.*install.*|.*git.*|.*requirements.*])\n```", content, re.DOTALL)
+        commandLine = re.search(
+            r"```.*\n([.*pip.*|.*conda.*|.*install.*|.*git.*|.*requirements.*])\n```",
+            content,
+            re.DOTALL,
+        )
         pyversion = re.search(r"```.*\n.*python[ |==](\d+\.\d+).*\n```", content)
-        
+
         if pyversion != None:
             args.python = pyversion.group(1)
         if commandLine != None:
@@ -98,7 +102,7 @@ if __name__ == "__main__":
                     if gitName.group(1) in os.path.basename(os.getcwd()):
                         # if the git repo name is the same as the current folder, change to parent folder first
                         command = "cd .. && " + command
-                
+
                 # if pip install is the first command, run command after conda environment is created
                 pipHeader = re.search(r"[pip|pip3] install.*", matchresult)
                 if pipHeader != None:
@@ -218,7 +222,9 @@ if __name__ == "__main__":
         for name in files:
             if name.endswith(".py") or name.endswith(".pyw") or name.endswith(".ipynb"):
                 with open(os.path.join(root, name), "r") as f:
-                    match = re.search(r"[import\s+(.*)\s|from\s+(.*)\simport.*]", f.read())
+                    match = re.search(
+                        r"[import\s+(.*)\s|from\s+(.*)\simport.*]", f.read()
+                    )
                     for single in match.groups():
                         if single != None:
                             module = single.split(" ")[0]
@@ -229,7 +235,6 @@ if __name__ == "__main__":
                                 args.retry,
                                 f"Install module {module}",
                             )
-
 
     # run entry point to install additional dependencies
 
